@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+# -*- encoding: utf-8 -*-
+
+from hashlib import md5
+import sys
+from getopt import getopt
+from time import time as timestamp
+
+
+# Copyright message of the code.
+# Also used as the version message.
+vermsg = '''pwdgen: A simple random password generator.
+Copyright (C) 2015-2022 Ella Ma
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+'''
+
+helpmsg = """pwdgen: A simple random password generator.
+
+Usage:
+    pwdgen [option <argument>] ...
+
+Options:
+        version(v): show version message
+           help(h): show this message
+            key(k): set password generator seed (default is the time stamp)
+       char-set(S): provide customized charactor set
+         length(l): customize password length (default is 16)
+        iterate(n): customize iteration count (default is 1)
+
+Charactor set shortcuts:
+     lower-case(c): enable lower-case letters
+     upper-case(C): enable upper-case letters
+          digit(d): enable digit numbers
+         symbol(s): enable symbols
+            hex(x): enable lower-case hex digits
+            HEX(X): enable upper-case hex digits
+           word(w): alias for cCd
+      printable(p): alias for cCds
+"""
+
+
+def gethash(key):
+    return int(md5(key.encode('utf-8')).hexdigest(), 16)
+
+
+def generate(key, charset, length):
+    nowhash = gethash(key)
+    base = len(charset)
+    passwd = ''
+    while 0 != length:
+        length -= 1
+        if nowhash < base:
+            nowhash += gethash(passwd)
+        passwd += charset[nowhash % base]
+        nowhash //= base
+    return passwd
+
+
+def main(key, charset, length, iterations):
+    passwd = key
+    while 0 != iterations:
+        iterations -= 1
+        passwd = generate(passwd, charset, length)
+    print(passwd)
+
+
+if __name__ == '__main__':
+    try:
+        if 1 == len(sys.argv):
+            raise ValueError
+        opts, args = getopt(
+            sys.argv[1:],
+            "vhk:S:l:n:cCdsxXwp",
+            [
+                'version',
+                'help',
+                'key=',
+                'char-set=',
+                'length=',
+                'iterate=',
+                'lower-case',
+                'upper-case',
+                'digit',
+                'symbol',
+                'hex',
+                'HEX',
+                'word',
+                'printable',
+             ]
+        )
+        chrflag = [False] * 128
+        key = str(timestamp())
+        length = 16
+        iterations = 1
+        lowercase = 'abcdefghijklmnopqrstuvwxyz'
+        uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        digits = '0123456789'
+        symbols = R""" ~!@#$%^&*()_+`-={}|[]\:";'<>?,./"""
+        hexchar = '0123456789abcdef'
+        HEXCHAR = '0123456789ABCDEF'
+        for opt, arg in opts:
+            if '-v' == opt or '--version' == opt:
+                print(vermsg)
+                sys.exit(0)
+            if '-h' == opt or '--help' == opt:
+                print(helpmsg)
+                sys.exit(0)
+            elif '-k' == opt or '--key' == opt:
+                key = arg
+            elif '-S' == opt or '--char-string' == opt:
+                for i in arg:
+                    chrflag[ord(i)] = True
+            elif '-l' == opt or '--length' == opt:
+                length = int(arg)
+            elif '-n' == opt or '--iterate' == opt:
+                iterations = int(arg)
+            elif '-c' == opt or '--lower-case' == opt:
+                for i in lowercase:
+                    chrflag[ord(i)] = True
+            elif '-C' == opt or '--upper-case' == opt:
+                for i in uppercase:
+                    chrflag[ord(i)] = True
+            elif '-d' == opt or '--digit' == opt:
+                for i in digits:
+                    chrflag[ord(i)] = True
+            elif '-s' == opt or '--symbol' == opt:
+                for i in symbols:
+                    chrflag[ord(i)] = True
+            elif '-x' == opt or '--hex' == opt:
+                for i in hexchar:
+                    chrflag[ord(i)] = True
+            elif '-X' == opt or '--HEX' == opt:
+                for i in HEXCHAR:
+                    chrflag[ord(i)] = True
+            elif '-w' == opt or '--word' == opt:
+                for i in lowercase + uppercase + digits:
+                    chrflag[ord(i)] = True
+            elif '-p' == opt or '--printable' == opt:
+                for i in lowercase + uppercase + digits + symbols:
+                    chrflag[ord(i)] = True
+        if not any(chrflag):
+            raise ValueError('char set is empty.')
+    except Exception as e:
+        if (str(e)):
+            print('ERROR: ' + str(e) + '\n')
+        print(helpmsg)
+    else:
+        charset = ''.join(
+            [chr(i) for i in range(32, 127) if chrflag[i] is True]
+        )
+        main(key, charset, length, iterations)
